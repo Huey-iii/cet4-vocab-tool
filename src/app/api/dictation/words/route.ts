@@ -18,14 +18,6 @@ export async function GET(request: Request) {
     const count = Math.min(50, Math.max(5, Number(searchParams.get("count")) || 10));
     const order = searchParams.get("order") || "sequential";
 
-    // 查询用户单词
-    const query = supabase
-      .from("words")
-      .select("id, word, part_of_speech")
-      .eq("user_id", user.id)
-      .limit(count)
-      .order("created_at", { ascending: false });
-
     // 优先取未掌握的
     const { data: unmastered } = await supabase
       .from("words")

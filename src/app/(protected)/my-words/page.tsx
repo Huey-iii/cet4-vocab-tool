@@ -49,7 +49,6 @@ export default function MyWordsPage() {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     fetchWords(page, search, statusFilter);
   }, [page, search, statusFilter, fetchWords]);
