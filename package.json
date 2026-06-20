@@ -13,7 +13,7 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.21.0",
-    "next": "^15.4.0",
+    "next": "^15.4.11",
     "openai": "^6.44.0",
     "pdfjs-dist": "^6.0.227",
     "react": "^18.3.1",
