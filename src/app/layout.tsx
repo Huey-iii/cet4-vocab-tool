@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppLayoutWrapper from "./AppLayoutWrapper";
 
 export const metadata: Metadata = {
   title: "CET-4 词汇工具",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AppLayoutWrapper>{children}</AppLayoutWrapper>
+      </body>
     </html>
   );
 }
