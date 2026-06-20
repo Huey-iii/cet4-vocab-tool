@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const order = searchParams.get("order") || "sequential";
 
     // 查询用户单词
-    let query = supabase
+    const query = supabase
       .from("words")
       .select("id, word, part_of_speech")
       .eq("user_id", user.id)
