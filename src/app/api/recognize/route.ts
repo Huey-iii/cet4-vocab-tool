@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { recognizeWords } from "@/lib/ai";
 
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const { image } = await request.json();

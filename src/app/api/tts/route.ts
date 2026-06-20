@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
  * 本路由仅作为配置端点返回可用音色信息，供前端设置页展示。
  */
 
+export const runtime = "edge";
+
 const AVAILABLE_VOICES = [
   { id: "en-US", name: "英语（美国）", lang: "en-US" },
   { id: "en-GB", name: "英语（英国）", lang: "en-GB" },

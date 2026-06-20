@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { gradeHandwriting } from "@/lib/ai";
 
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const { image, expected_words } = await request.json();
