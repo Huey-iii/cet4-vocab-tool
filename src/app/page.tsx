@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Upload, Pencil, Keyboard, BookOpen, TrendingUp, Loader2 } from "lucide-react";
+import { Upload, Pencil, Keyboard, BookOpen, TrendingUp, Loader2, Search } from "lucide-react";
 
 interface Stats {
   total: number;
@@ -112,6 +112,19 @@ export default function HomePage() {
           <div>
             <p className="text-sm font-medium text-gray-900">键入拼写</p>
             <p className="text-xs text-gray-400">听音打字练习</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dictionary"
+          className="flex items-center gap-3 rounded-xl border bg-white p-4 transition hover:border-blue-200 hover:shadow-sm"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50">
+            <Search className="h-5 w-5 text-sky-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">查词典</p>
+            <p className="text-xs text-gray-400">中英释义查询</p>
           </div>
         </Link>
       </div>
