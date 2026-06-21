@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "DeepSeek not configured" }, { status: 500 });
     }
 
-    const prompt = `你是一个CET-4英语词典助手。请为单词"${word}"提供学习信息，严格按JSON返回：{"word":"原词","phonetic":"国际音标","part_of_speech":"词性","chinese_meaning":"中文释义（多个含义分号分隔）","example_en":"一个典型英文例句","example_cn":"例句中文翻译","synonyms":"2-3个近义词英文逗号分隔","word_forms":"词形变化（复数/过去式/过去分词/现在分词/比较级/最高级等，没有填空串）"}`;
+    const prompt = `你是通用英汉词典。请为单词"${word}"提供信息，即使是专有名词、缩写、俚语或生僻词也要尽力解释，严格按JSON返回：{"word":"原词","phonetic":"国际音标（没有则空）","part_of_speech":"词性","chinese_meaning":"中文释义（专有名词/缩写/俚语也给出中文说明，多个含义分号分隔）","example_en":"一个典型英文例句（没有则空）","example_cn":"例句中文翻译","synonyms":"2-3个近义词英文逗号分隔（没有则空）","word_forms":"词形变化（没有则空）"}`;
 
     const res = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
