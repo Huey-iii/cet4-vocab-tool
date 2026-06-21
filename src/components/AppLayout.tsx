@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { Upload, BookOpen, Pencil, LogOut } from "lucide-react";
+import { Upload, BookOpen, Pencil, Search, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/upload", label: "上传", icon: Upload },
   { href: "/my-words", label: "词库", icon: BookOpen },
   { href: "/dictation/setup", label: "听写", icon: Pencil },
+  { href: "/dictionary", label: "词典", icon: Search },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
