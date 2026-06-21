@@ -10,8 +10,8 @@ export default function AppLayoutWrapper({
 }) {
   const pathname = usePathname();
 
-  // Auth page doesn't need sidebar
-  if (pathname.startsWith("/auth")) {
+  // Auth and dictionary pages don't need sidebar
+  if (pathname.startsWith("/auth") || pathname.startsWith("/dictionary")) {
     return <>{children}</>;
   }
 
