@@ -10,10 +10,8 @@ export default function AppLayoutWrapper({
 }) {
   const pathname = usePathname();
 
-  // Auth and dictionary pages don't need sidebar
-  if (pathname.startsWith("/auth") || pathname.startsWith("/dictionary")) {
-    return <>{children}</>;
-  }
+  // All pages skip AppLayout until MemFireCloud is ready
+  return <>{children}</>;
 
   return <AppLayout>{children}</AppLayout>;
 }
