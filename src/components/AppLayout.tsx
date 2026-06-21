@@ -12,18 +12,26 @@ const NAV_ITEMS = [
   { href: "/dictionary", label: "词典", icon: Search },
 ];
 
+interface SupabaseClient {
+  auth: {
+    signOut: () => Promise<void>;
+    getUser: () => Promise<{ data: { user: { email: string } | null } }>;
+  };
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [supabase, setSupabase] = useState<any>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { createBrowserClient } = require("@/lib/supabase/client");
-      const client = createBrowserClient();
+      const client = createBrowserClient() as SupabaseClient;
       setSupabase(client);
-      client.auth.getUser().then(({ data }: any) => {
+      client.auth.getUser().then(({ data }) => {
         setUserEmail(data.user?.email ?? null);
       }).catch(() => {});
     } catch {}
