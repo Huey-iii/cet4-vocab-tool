@@ -1,11 +1,11 @@
 "use client";
 
-import SimpleLayout from "@/components/SimpleLayout";
+import AppLayout from "@/components/AppLayout";
 
 export default function AppLayoutWrapper({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <SimpleLayout>{children}</SimpleLayout>;
+  return <AppLayout>{children}</AppLayout>;
 }

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createBrowserClient } from "@/lib/supabase/client";
 import { Upload, BookOpen, Pencil, Search, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -16,16 +15,22 @@ const NAV_ITEMS = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createBrowserClient();
+  const [supabase, setSupabase] = useState<any>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
+    try {
+      const { createBrowserClient } = require("@/lib/supabase/client");
+      const client = createBrowserClient();
+      setSupabase(client);
+      client.auth.getUser().then(({ data }: any) => {
+        setUserEmail(data.user?.email ?? null);
+      }).catch(() => {});
+    } catch {}
   }, []);
 
   async function handleLogout() {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.push("/auth");
     router.refresh();
@@ -57,16 +62,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="border-t p-3">
-          <div className="mb-2 truncate text-xs text-gray-400">{userEmail}</div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100"
-          >
-            <LogOut size={16} />
-            退出
-          </button>
-        </div>
+        {supabase && (
+          <div className="border-t p-3">
+            <div className="mb-2 truncate text-xs text-gray-400">{userEmail}</div>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100"
+            >
+              <LogOut size={16} />
+              退出
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* 主内容 */}
