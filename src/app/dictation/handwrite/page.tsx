@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Loader2, Play, Pause, SkipForward, Camera, Upload, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import {
+  Loader2, Play, Pause, SkipForward, Camera,
+  CheckCircle, XCircle, AlertTriangle,
+} from "lucide-react";
 
 interface Word {
   id: string;
@@ -18,12 +21,8 @@ interface GradeResult {
 }
 
 const VOICE_MAP: Record<string, string> = {
-  Samantha: "en-US",
-  Karen: "en-US",
-  Daniel: "en-GB",
-  Alex: "en-US",
-  Tom: "en-US",
-  Oliver: "en-GB",
+  Samantha: "en-US", Karen: "en-US", Daniel: "en-GB",
+  Alex: "en-US", Tom: "en-US", Oliver: "en-GB",
 };
 
 function HandwritePageInner() {
@@ -36,7 +35,9 @@ function HandwritePageInner() {
   const order = params.get("order") || "sequential";
   const voiceName = params.get("voice") || "Samantha";
 
-  const [phase, setPhase] = useState<"loading" | "ready" | "playing" | "paused" | "finished" | "grading" | "result">("loading");
+  const [phase, setPhase] = useState<
+    "loading" | "ready" | "playing" | "paused" | "finished" | "grading" | "result"
+  >("loading");
   const [words, setWords] = useState<Word[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [currentRepeat, setCurrentRepeat] = useState(0);
@@ -48,29 +49,30 @@ function HandwritePageInner() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [handwritingFile, setHandwritingFile] = useState<File | null>(null);
 
-  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 用 refs 保持最新值，根治闭包过期
+  const wordsRef = useRef(words);
+  const currentIdxRef = useRef(currentIdx);
+  const currentRepeatRef = useRef(currentRepeat);
+  const phaseRef = useRef(phase);
+  wordsRef.current = words;
+  currentIdxRef.current = currentIdx;
+  currentRepeatRef.current = currentRepeat;
+  phaseRef.current = phase;
 
   // 加载单词
   useEffect(() => {
     async function load() {
       try {
-        const params = new URLSearchParams({
-          count: String(count),
-          order,
-        });
-        const res = await fetch(`/api/dictation/words?${params}`);
+        const p = new URLSearchParams({ count: String(count), order });
+        const res = await fetch(`/api/dictation/words?${p}`);
         const data = await res.json();
-        if (data.error) {
-          setError(data.error);
-          return;
-        }
+        if (data.error) { setError(data.error); return; }
         setWords(data.words || []);
         setPhase("ready");
-      } catch {
-        setError("加载单词失败");
-      }
+      } catch { setError("加载单词失败"); }
     }
     load();
   }, [count, order]);
@@ -79,91 +81,103 @@ function HandwritePageInner() {
   useEffect(() => {
     function setVoice() {
       const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) {
-        setTimeout(setVoice, 200);
-        return;
-      }
+      if (voices.length === 0) { setTimeout(setVoice, 200); return; }
       const lang = VOICE_MAP[voiceName] || "en-US";
-      const match = voices.find((v) => v.name.includes(voiceName) && v.lang.startsWith(lang));
-      voiceRef.current = match || voices.find((v) => v.lang.startsWith(lang)) || voices[0];
+      voiceRef.current = voices.find((v) => v.name.includes(voiceName) && v.lang.startsWith(lang))
+        || voices.find((v) => v.lang.startsWith(lang))
+        || voices[0];
     }
     setVoice();
     speechSynthesis.onvoiceschanged = setVoice;
     return () => { speechSynthesis.onvoiceschanged = null; };
   }, [voiceName]);
 
-  // 朗读单词
-  const speak = useCallback(
-    (word: string) => {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(word);
-      u.rate = 0.85;
-      u.pitch = 1;
-      if (voiceRef.current) u.voice = voiceRef.current;
-      u.onend = () => {
-        synthRef.current = null;
-      };
-      synthRef.current = u;
-      speechSynthesis.speak(u);
-    },
-    []
-  );
+  // 朗读单词（onend 回调通过 ref 读取最新状态，永不闭包过期）
+  const speak = useCallback((word: string) => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.rate = 0.85;
+    if (voiceRef.current) u.voice = voiceRef.current;
+    u.onend = () => {
+      // 朗读结束 → 自动推进
+      advanceToNext();
+    };
+    speechSynthesis.speak(u);
+  }, []);
 
-  // 播放下一个
-  const playNext = useCallback(() => {
-    if (phase !== "playing" && phase !== "ready") return;
+  // 推进到下一个朗读单元（普通函数，通过 ref 读最新状态）
+  function advanceToNext() {
+    if (phaseRef.current !== "playing") return;
 
-    if (currentRepeat < repeat - 1) {
-      // 重复读当前词
-      setCurrentRepeat((r) => r + 1);
-      speak(words[currentIdx].word);
+    const ws = wordsRef.current;
+    const idx = currentIdxRef.current;
+    const rpt = currentRepeatRef.current;
+
+    if (rpt < repeat - 1) {
+      // 重复当前词
+      setCurrentRepeat(rpt + 1);
+      speak(ws[idx].word);
       return;
     }
 
     // 下一个词
-    if (currentIdx + 1 >= words.length) {
+    if (idx + 1 >= ws.length) {
       setPhase("finished");
       return;
     }
 
-    setCurrentIdx((i) => i + 1);
+    const nextIdx = idx + 1;
+    const wordText = ws[nextIdx].word;
+
+    setCurrentIdx(nextIdx);
     setCurrentRepeat(0);
 
     if (interval > 0) {
-      timerRef.current = setTimeout(() => {
-        speak(words[currentIdx + 1].word);
-      }, interval * 1000);
+      timerRef.current = setTimeout(() => speak(wordText), interval * 1000);
     }
-  }, [phase, currentIdx, currentRepeat, words, repeat, interval, speak]);
+    // interval === 0 时不自动播放，等用户点"下一词"
+  }
 
-  // 手动继续
+  // 手动跳到下一词（interval=0 时使用）
   const manualNext = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     speechSynthesis.cancel();
 
-    if (currentIdx + 1 >= words.length) {
+    const ws = wordsRef.current;
+    const idx = currentIdxRef.current;
+
+    if (idx + 1 >= ws.length) {
       setPhase("finished");
       return;
     }
-    setCurrentIdx((i) => i + 1);
+    setCurrentIdx(idx + 1);
     setCurrentRepeat(0);
+    // 立即朗读
+    setTimeout(() => speak(ws[idx + 1].word), 100);
   };
 
-  // 开始
+  // 开始听写
   const startPlaying = () => {
     setPhase("playing");
-    setTimeout(() => speak(words[0].word), 800);
+    // 用 ref 读最新 words
+    setTimeout(() => {
+      const ws = wordsRef.current;
+      if (ws.length > 0) speak(ws[0].word);
+    }, 800);
   };
 
   // 暂停 / 继续
   const togglePause = () => {
     if (phase === "playing") {
-      speechSynthesis.pause();
+      speechSynthesis.cancel();
       if (timerRef.current) clearTimeout(timerRef.current);
       setPhase("paused");
-    } else {
-      speechSynthesis.resume();
+    } else if (phase === "paused") {
       setPhase("playing");
+      // 继续：重读当前词
+      const ws = wordsRef.current;
+      const idx = currentIdxRef.current;
+      speak(ws[idx].word);
     }
   };
 
@@ -343,11 +357,11 @@ function HandwritePageInner() {
       <div className="mb-8 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
         <div
           className="h-full rounded-full bg-blue-500 transition-all duration-300"
-          style={{ width: `${((currentIdx + (currentRepeat / repeat)) / words.length) * 100}%` }}
+          style={{ width: `${((currentIdx + currentRepeat / repeat) / words.length) * 100}%` }}
         />
       </div>
 
-      {/* 倒计时（仅在有间隔且未到最后一轮时显示） */}
+      {/* 倒计时提示 */}
       {interval > 0 && phase === "playing" && currentRepeat === 0 && currentIdx < words.length - 1 && (
         <p className="mb-2 text-xs text-gray-400">下一词 {interval} 秒后</p>
       )}
@@ -361,9 +375,16 @@ function HandwritePageInner() {
           >
             <Play className="ml-1 h-6 w-6" />
           </button>
+        ) : phase === "paused" ? (
+          <button
+            onClick={togglePause}
+            className="flex h-12 w-12 items-center justify-center rounded-full border text-gray-600 hover:bg-gray-100"
+          >
+            <Play className="ml-0.5 h-5 w-5" />
+          </button>
         ) : (
           <>
-            {/* 手动翻页（间隔=0） */}
+            {/* interval=0 时显示手动跳词按钮 */}
             {interval === 0 && (
               <button
                 onClick={manualNext}
@@ -372,12 +393,11 @@ function HandwritePageInner() {
                 <SkipForward className="h-5 w-5" />
               </button>
             )}
-
             <button
               onClick={togglePause}
               className="flex h-12 w-12 items-center justify-center rounded-full border text-gray-600 hover:bg-gray-100"
             >
-              {phase === "playing" ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+              <Pause className="h-5 w-5" />
             </button>
           </>
         )}
@@ -386,7 +406,6 @@ function HandwritePageInner() {
   );
 }
 
-// Suspense 包裹 SearchParams 使用
 export default function HandwritePage() {
   return (
     <Suspense fallback={<div className="flex justify-center pt-20"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>}>
