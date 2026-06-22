@@ -34,7 +34,7 @@ export async function recognizeWords(imageBase64: string): Promise<
 > {
   return withRetry(async () => {
     const response = await client.chat.completions.create({
-      model: "deepseek-chat", // 支持视觉的多模态模型
+      model: "deepseek-v3-vision",
       messages: [
         {
           role: "system",
@@ -83,7 +83,7 @@ export async function gradeHandwriting(
       .join("\n");
 
     const response = await client.chat.completions.create({
-      model: "deepseek-vl2",
+      model: "deepseek-v3-vision",
       messages: [
         {
           role: "system",
