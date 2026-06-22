@@ -99,18 +99,9 @@ function TypingPageInner() {
     speakWord(words[currentIdx].word);
   };
 
-  // 键盘事件：Enter 提交
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key !== "Enter" || phase !== "playing") return;
-      e.preventDefault();
-      submitAnswer();
-    }
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [phase, currentIdx, input, showAnswer, feedback]);
+  // 键盘事件统一由 input 的 onKeyDown 处理，移除重复的 window 级监听器
 
-  // 实际是在 showAnswer 后的回车 → 下一词
+  // showAnswer 后 input 被 disabled，需用 window 监听器处理"下一词"
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key !== "Enter" || !showAnswer) return;
@@ -119,7 +110,7 @@ function TypingPageInner() {
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showAnswer, currentIdx, words]);
+  }, [showAnswer, currentIdx, words.length]);
 
   // 提交拼写
   function submitAnswer() {
@@ -135,12 +126,16 @@ function TypingPageInner() {
 
   // 下一个词
   function nextWord() {
-    if (currentIdx + 1 >= words.length) {
+    const newIdx = currentIdx + 1;
+    if (newIdx >= words.length) {
       setPhase("result");
       return;
     }
 
-    setCurrentIdx((i) => i + 1);
+    // 先拿到新词，避免异步 setState 导致 playCurrentWord 读到旧 index
+    const nextWord = words[newIdx].word;
+
+    setCurrentIdx(newIdx);
     setCurrentRepeat(0);
     setInput("");
     setFeedback("idle");
@@ -149,7 +144,7 @@ function TypingPageInner() {
 
     setTimeout(() => {
       inputRef.current?.focus();
-      playCurrentWord();
+      speakWord(nextWord);
     }, 200);
   }
 
@@ -270,6 +265,7 @@ function TypingPageInner() {
                 onChange={(e) => { if (!showAnswer) setInput(e.target.value); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    e.stopPropagation();
                     if (!showAnswer) { e.preventDefault(); submitAnswer(); }
                     else { e.preventDefault(); nextWord(); }
                   }
