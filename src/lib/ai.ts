@@ -1,9 +1,15 @@
 import OpenAI from "openai";
 
-// DeepSeek API 兼容 OpenAI SDK，只需切换 baseURL
-const client = new OpenAI({
+// DeepSeek 文本 API
+const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY,
   baseURL: "https://api.deepseek.com",
+});
+
+// 通义千问视觉 API
+const qwenClient = new OpenAI({
+  apiKey: process.env.QWEN_API_KEY,
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
 });
 
 const MAX_RETRIES = 3;
@@ -28,13 +34,13 @@ async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promis
   throw new Error("unreachable");
 }
 
-/** 识别图片中的英语单词（使用 DeepSeek 视觉模型） */
+/** 识别图片中的英语单词（使用通义千问 VL 视觉模型） */
 export async function recognizeWords(imageBase64: string): Promise<
   { word: string; partOfSpeech: string }[]
 > {
   return withRetry(async () => {
-    const response = await client.chat.completions.create({
-      model: "deepseek-v3-vision",
+    const response = await qwenClient.chat.completions.create({
+      model: "qwen-vl-plus",
       messages: [
         {
           role: "system",
