@@ -42,6 +42,11 @@ function TypingPageInner() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  // 用 refs 保持最新值，避免 useCallback / setTimeout 闭包过期
+  const wordsRef = useRef(words);
+  const currentIdxRef = useRef(currentIdx);
+  wordsRef.current = words;
+  currentIdxRef.current = currentIdx;
 
   // 加载单词
   useEffect(() => {
@@ -81,22 +86,29 @@ function TypingPageInner() {
     speechSynthesis.speak(u);
   }, []);
 
-  // 读当前词
+  // 朗读当前词（通过 ref 读取最新 index）
   const playCurrentWord = useCallback(() => {
-    if (words.length === 0) return;
-    speakWord(words[currentIdx].word);
-  }, [words, currentIdx, speakWord]);
+    const ws = wordsRef.current;
+    const idx = currentIdxRef.current;
+    if (ws.length === 0) return;
+    speakWord(ws[idx].word);
+  }, [speakWord]);
 
-  // 开始
+  // 开始听写
   const startPlaying = useCallback(() => {
     setPhase("playing");
-    setTimeout(() => playCurrentWord(), 600);
-  }, [playCurrentWord]);
+    setTimeout(() => {
+      const ws = wordsRef.current;
+      if (ws.length > 0) speakWord(ws[0].word);
+    }, 600);
+  }, [speakWord]);
 
   // 重复朗读当前词
   const replayWord = () => {
+    const ws = wordsRef.current;
+    const idx = currentIdxRef.current;
     setRepeatListening(true);
-    speakWord(words[currentIdx].word);
+    speakWord(ws[idx].word);
   };
 
   // 键盘事件统一由 input 的 onKeyDown 处理，移除重复的 window 级监听器
@@ -120,20 +132,29 @@ function TypingPageInner() {
 
     setFeedback(isCorrect ? "correct" : "wrong");
     setShowAnswer(true);
-
     setResults((prev) => [...prev, { word: currentWord, typed: input.trim(), correct: isCorrect }]);
   }
 
+  // 提交后自动跳转（正确则 1.3s，错误由用户手动点击/按键）
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (showAnswer && feedback === "correct") {
+      autoAdvanceRef.current = setTimeout(() => nextWord(), 1300);
+    }
+    return () => { if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current); };
+  }, [showAnswer, feedback]);
+
   // 下一个词
   function nextWord() {
-    const newIdx = currentIdx + 1;
-    if (newIdx >= words.length) {
+    const ws = wordsRef.current;
+    const newIdx = currentIdxRef.current + 1;
+    if (newIdx >= ws.length) {
       setPhase("result");
       return;
     }
 
-    // 先拿到新词，避免异步 setState 导致 playCurrentWord 读到旧 index
-    const nextWord = words[newIdx].word;
+    // 先拿到新词文本，避免异步 setState 后闭包读到旧值
+    const wordText = ws[newIdx].word;
 
     setCurrentIdx(newIdx);
     setCurrentRepeat(0);
@@ -142,9 +163,11 @@ function TypingPageInner() {
     setShowAnswer(false);
     setRepeatListening(false);
 
+    // ref 也会同步更新（上面 setCurrentIdx 触发 render 后 currentIdxRef.current 更新；
+    // 但 timeout 里不需要 ref，直接用捕获的 wordText）
     setTimeout(() => {
       inputRef.current?.focus();
-      speakWord(nextWord);
+      speakWord(wordText);
     }, 200);
   }
 
