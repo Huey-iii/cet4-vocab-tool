@@ -83,7 +83,7 @@ export async function gradeHandwriting(
       .join("\n");
 
     const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+      model: "deepseek-vl2",
       messages: [
         {
           role: "system",
