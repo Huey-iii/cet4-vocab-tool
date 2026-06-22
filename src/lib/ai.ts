@@ -88,8 +88,8 @@ export async function gradeHandwriting(
       .map((w, i) => `${i + 1}. ${w.expected}`)
       .join("\n");
 
-    const response = await client.chat.completions.create({
-      model: "deepseek-v3-vision",
+    const response = await qwenClient.chat.completions.create({
+      model: "qwen-vl-plus",
       messages: [
         {
           role: "system",
