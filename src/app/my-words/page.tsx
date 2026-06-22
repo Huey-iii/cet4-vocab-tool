@@ -7,6 +7,7 @@ interface Word {
   id: string;
   word: string;
   part_of_speech: string;
+  chinese_meaning: string;
   mastered: boolean;
   created_at: string;
 }
@@ -151,6 +152,9 @@ export default function MyWordsPage() {
                 <span className={`text-sm font-medium ${w.mastered ? "line-through" : ""}`}>
                   {w.word}
                 </span>
+                {w.chinese_meaning && (
+                  <span className="ml-2 text-xs text-gray-400">{w.chinese_meaning}</span>
+                )}
               </div>
 
               <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">

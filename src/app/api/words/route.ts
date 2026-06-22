@@ -45,12 +45,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const db = getDB();
-    const { id, word, part_of_speech } = await request.json();
-    if (!id || !word) {
-      return NextResponse.json({ error: "缺少必填字段" }, { status: 400 });
+    const body = await request.json();
+
+    // 支持单个单词和批量两种格式
+    const words: { word: string; part_of_speech?: string; chinese_meaning?: string }[] =
+      Array.isArray(body) ? body : body.words ? body.words : [body];
+
+    for (const w of words) {
+      const word = w.word?.trim();
+      if (!word) continue;
+      // 生成短 ID：取单词前6字符 + 时间戳末4位 + 随机2字符
+      const id = `${word.slice(0, 6)}_${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 4)}`;
+      await db
+        .prepare(
+          `INSERT OR IGNORE INTO words (id, word, part_of_speech, chinese_meaning) VALUES (?, ?, ?, ?)`
+        )
+        .bind(id, word, w.part_of_speech || "", w.chinese_meaning || "")
+        .run();
     }
-    await db.prepare(`INSERT OR IGNORE INTO words (id, word, part_of_speech) VALUES (?, ?, ?)`).bind(id, word, part_of_speech || "").run();
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ success: true, count: words.filter((w) => w.word?.trim()).length });
   } catch (error) {
     console.error("添加单词失败:", error);
     return NextResponse.json({ error: "服务器错误" }, { status: 500 });

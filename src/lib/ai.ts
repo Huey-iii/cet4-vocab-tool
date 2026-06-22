@@ -36,7 +36,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promis
 
 /** 识别图片中的英语单词（使用通义千问 VL 视觉模型） */
 export async function recognizeWords(imageBase64: string): Promise<
-  { word: string; partOfSpeech: string }[]
+  { word: string; partOfSpeech: string; chineseMeaning: string }[]
 > {
   return withRetry(async () => {
     const response = await qwenClient.chat.completions.create({
@@ -45,9 +45,10 @@ export async function recognizeWords(imageBase64: string): Promise<
         {
           role: "system",
           content:
-            "You are an OCR assistant. Identify ALL English words in the image. " +
-            "For each word, determine its part of speech (e.g. n., v., adj., adv., prep., conj.). " +
-            "Return ONLY a JSON array: [{\"word\":\"...\",\"partOfSpeech\":\"...\"}]. " +
+            "You are an OCR assistant for CET-4 learners. Identify ALL English words in the image. " +
+            "For each word, determine its part of speech (e.g. n., v., adj., adv., prep., conj.) " +
+            "and provide a concise Chinese meaning (1-3 Chinese words). " +
+            "Return ONLY a JSON array: [{\"word\":\"...\",\"partOfSpeech\":\"n.\",\"chineseMeaning\":\"...\"}]. " +
             "If no English words found, return [].",
         },
         {

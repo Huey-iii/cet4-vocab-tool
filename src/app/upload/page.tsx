@@ -7,6 +7,7 @@ import { Upload, FileWarning, Loader2 } from "lucide-react";
 interface RecognizedWord {
   word: string;
   partOfSpeech: string;
+  chineseMeaning: string;
 }
 
 export default function UploadPage() {
@@ -66,7 +67,7 @@ export default function UploadPage() {
     multiple: false,
   });
 
-  function updateWord(index: number, field: "word" | "partOfSpeech", value: string) {
+  function updateWord(index: number, field: "word" | "partOfSpeech" | "chineseMeaning", value: string) {
     setEditingWords((prev) =>
       prev.map((w, i) => (i === index ? { ...w, [field]: value } : w))
     );
@@ -77,7 +78,7 @@ export default function UploadPage() {
   }
 
   function addWord() {
-    setEditingWords((prev) => [...prev, { word: "", partOfSpeech: "" }]);
+    setEditingWords((prev) => [...prev, { word: "", partOfSpeech: "", chineseMeaning: "" }]);
   }
 
   async function saveWords() {
@@ -176,8 +177,14 @@ export default function UploadPage() {
                 <input
                   value={w.partOfSpeech}
                   onChange={(e) => updateWord(i, "partOfSpeech", e.target.value)}
-                  className="w-20 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+                  className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   placeholder="词性"
+                />
+                <input
+                  value={w.chineseMeaning}
+                  onChange={(e) => updateWord(i, "chineseMeaning", e.target.value)}
+                  className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  placeholder="中文释义"
                 />
                 <button
                   onClick={() => removeWord(i)}
