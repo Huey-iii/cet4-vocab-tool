@@ -35,9 +35,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ results, score, total: results.length, correct: correctCount });
   } catch (error) {
-    console.error("批改失败:", error);
+    const err = error as { status?: number; message?: string; code?: string; type?: string };
+    console.error("批改失败:", err);
     return NextResponse.json(
-      { error: "批改服务暂时不可用，请稍后重试" },
+      { error: `批改失败: ${err.message || String(error)}`, detail: JSON.stringify(err, Object.getOwnPropertyNames(err)) },
       { status: 500 }
     );
   }

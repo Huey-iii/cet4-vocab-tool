@@ -25,18 +25,18 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ words });
   } catch (error) {
-    const err = error as { status?: number; message?: string };
+    const err = error as { status?: number; message?: string; code?: string; type?: string };
     console.error("识别失败:", err);
 
     if (err.status === 429) {
       return NextResponse.json(
-        { error: "请求过于频繁，请稍后重试" },
+        { error: `请求过于频繁，请稍后重试 (${err.message || ""})` },
         { status: 429 }
       );
     }
 
     return NextResponse.json(
-      { error: "识别服务暂时不可用，请稍后重试" },
+      { error: `识别失败: ${err.message || String(error)}`, detail: JSON.stringify(err, Object.getOwnPropertyNames(err)) },
       { status: 500 }
     );
   }
