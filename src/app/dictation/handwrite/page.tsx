@@ -57,10 +57,13 @@ function HandwritePageInner() {
   const currentIdxRef = useRef(currentIdx);
   const currentRepeatRef = useRef(currentRepeat);
   const phaseRef = useRef(phase);
-  wordsRef.current = words;
-  currentIdxRef.current = currentIdx;
-  currentRepeatRef.current = currentRepeat;
-  phaseRef.current = phase;
+  // 同步 ref（useEffect 内写入，不在 render 期间操作 ref）
+  useEffect(() => {
+    wordsRef.current = words;
+    currentIdxRef.current = currentIdx;
+    currentRepeatRef.current = currentRepeat;
+    phaseRef.current = phase;
+  });
 
   // 加载单词
   useEffect(() => {
@@ -92,19 +95,7 @@ function HandwritePageInner() {
     return () => { speechSynthesis.onvoiceschanged = null; };
   }, [voiceName]);
 
-  // 朗读单词（不在 onend 回调链内同步 cancel，避免浏览器引擎锁死）
-  const speak = useCallback((word: string) => {
-    const u = new SpeechSynthesisUtterance(word);
-    u.rate = 0.85;
-    if (voiceRef.current) u.voice = voiceRef.current;
-    u.onend = () => {
-      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
-      setTimeout(() => advanceToNext(), 0);
-    };
-    speechSynthesis.speak(u);
-  }, []);
-
-  // 推进到下一个朗读单元（普通函数，通过 ref 读最新状态）
+  // 推进到下一个朗读单元（普通函数声明，必须在 speak 前，避免 useCallback 捕获前未声明）
   function advanceToNext() {
     if (phaseRef.current !== "playing") return;
 
@@ -139,6 +130,18 @@ function HandwritePageInner() {
     }
     // interval === 0 时不自动播放，等用户点"下一词"
   }
+
+  // 朗读单词（不在 onend 回调链内同步 cancel，避免浏览器引擎锁死）
+  const speak = useCallback((word: string) => {
+    const u = new SpeechSynthesisUtterance(word);
+    u.rate = 0.85;
+    if (voiceRef.current) u.voice = voiceRef.current;
+    u.onend = () => {
+      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
+      setTimeout(() => advanceToNext(), 0);
+    };
+    speechSynthesis.speak(u);
+  }, []);
 
   // 手动跳到下一词（interval=0 时使用）
   const manualNext = () => {
