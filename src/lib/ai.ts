@@ -72,7 +72,7 @@ export async function recognizeWords(imageBase64: string): Promise<
   });
 }
 
-/** 批改手写单词（使用 DeepSeek 视觉模型） */
+/** 批改手写单词（使用通义千问 VL 视觉模型） */
 export async function gradeHandwriting(
   handwritingBase64: string,
   expectedWords: { word_id: string; expected: string }[]

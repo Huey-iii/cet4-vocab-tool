@@ -90,7 +90,7 @@ export default function HomePage() {
         </Link>
 
         <Link
-          href="/dictation/setup"
+          href="/dictation/setup?mode=handwrite"
           className="flex items-center gap-3 rounded-xl border bg-white p-4 transition hover:border-blue-200 hover:shadow-sm"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
@@ -103,7 +103,7 @@ export default function HomePage() {
         </Link>
 
         <Link
-          href="/dictation/setup"
+          href="/dictation/setup?mode=typing"
           className="flex items-center gap-3 rounded-xl border bg-white p-4 transition hover:border-blue-200 hover:shadow-sm"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50">

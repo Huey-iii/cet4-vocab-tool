@@ -6,6 +6,8 @@ import {
   Loader2, Play, Pause, SkipForward, Camera,
   CheckCircle, XCircle, AlertTriangle,
 } from "lucide-react";
+import { resolveVoice } from "@/lib/tts";
+import { compressAndToBase64 } from "@/lib/image";
 
 interface Word {
   id: string;
@@ -20,10 +22,6 @@ interface GradeResult {
   suggestion: string | null;
 }
 
-const VOICE_MAP: Record<string, string> = {
-  Samantha: "en-US", Karen: "en-US", Daniel: "en-GB",
-  Alex: "en-US", Tom: "en-US", Oliver: "en-GB",
-};
 
 function HandwritePageInner() {
   const router = useRouter();
@@ -85,10 +83,7 @@ function HandwritePageInner() {
     function setVoice() {
       const voices = speechSynthesis.getVoices();
       if (voices.length === 0) { setTimeout(setVoice, 200); return; }
-      const lang = VOICE_MAP[voiceName] || "en-US";
-      voiceRef.current = voices.find((v) => v.name.includes(voiceName) && v.lang.startsWith(lang))
-        || voices.find((v) => v.lang.startsWith(lang))
-        || voices[0];
+      voiceRef.current = resolveVoice(voiceName, voices);
     }
     setVoice();
     speechSynthesis.onvoiceschanged = setVoice;
@@ -205,20 +200,7 @@ function HandwritePageInner() {
     if (!handwritingFile) return;
     setPhase("grading");
 
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX = 1600;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
-      };
-      img.onerror = reject;
-      img.src = URL.createObjectURL(handwritingFile);
-    });
+    const base64 = await compressAndToBase64(handwritingFile, 1600, 0.85);
 
     try {
       const res = await fetch("/api/grade-handwriting", {
@@ -259,6 +241,11 @@ function HandwritePageInner() {
 
   // 结果阶段
   if (phase === "result") {
+    const wrongResults = gradeResults.filter((r) => !r.correct);
+    const wrongWords = wrongResults
+      .map((r) => words.find((w) => w.id === r.word_id))
+      .filter((w): w is Word => w != null);
+
     return (
       <div className="mx-auto max-w-lg p-6">
         <h2 className="mb-2 text-xl font-bold text-gray-900">听写结果</h2>
@@ -297,12 +284,32 @@ function HandwritePageInner() {
           })}
         </div>
 
-        <button
-          onClick={() => router.push("/dictation/setup")}
-          className="mt-6 w-full rounded-xl border py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          再来一次
-        </button>
+        <div className="mt-6 space-y-2">
+          {wrongWords.length > 0 && (
+            <button
+              onClick={() => {
+                setWords(wrongWords);
+                setCurrentIdx(0);
+                setCurrentRepeat(0);
+                setGradeResults([]);
+                setScore(0);
+                setCorrect(0);
+                setImagePreview(null);
+                setHandwritingFile(null);
+                setPhase("ready");
+              }}
+              className="w-full rounded-xl bg-amber-500 py-3 text-sm font-medium text-white transition hover:bg-amber-600"
+            >
+              专练错词（{wrongWords.length} 个）
+            </button>
+          )}
+          <button
+            onClick={() => router.push("/dictation/setup?mode=handwrite")}
+            className="w-full rounded-xl border py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            重新设置
+          </button>
+        </div>
       </div>
     );
   }

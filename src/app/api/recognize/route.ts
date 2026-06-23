@@ -35,8 +35,9 @@ export async function POST(request: Request) {
       );
     }
 
+    console.error("识别失败详情:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
     return NextResponse.json(
-      { error: `识别失败: ${err.message || String(error)}`, detail: JSON.stringify(err, Object.getOwnPropertyNames(err)) },
+      { error: "识别失败，请稍后重试" },
       { status: 500 }
     );
   }

@@ -1,21 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Volume2, Pencil, Keyboard } from "lucide-react";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Volume2, Pencil, Keyboard, Loader2 } from "lucide-react";
+import { VOICES } from "@/lib/tts";
 
-const VOICES: { label: string; name: string }[] = [
-  { label: "美式女声 A", name: "Samantha" },
-  { label: "美式女声 B", name: "Karen" },
-  { label: "英式女声", name: "Daniel" },
-  { label: "美式男声 A", name: "Alex" },
-  { label: "美式男声 B", name: "Tom" },
-  { label: "英式男声", name: "Oliver" },
-];
-
-export default function DictationSetupPage() {
+function SetupPageInner() {
   const router = useRouter();
-  const [mode, setMode] = useState<"handwrite" | "typing">("handwrite");
+  const searchParams = useSearchParams();
+  const initialMode = (searchParams.get("mode") as "handwrite" | "typing") || "handwrite";
+
+  const [mode, setMode] = useState<"handwrite" | "typing">(initialMode);
   const [count, setCount] = useState(10);
   const [repeat, setRepeat] = useState(2);
   const [intervalSec, setIntervalSec] = useState(5);
@@ -168,5 +163,13 @@ export default function DictationSetupPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function DictationSetupPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center pt-20"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+      <SetupPageInner />
+    </Suspense>
   );
 }

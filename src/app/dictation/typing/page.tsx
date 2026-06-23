@@ -3,11 +3,7 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, Play, Volume2, CheckCircle, XCircle, ArrowRight, RotateCcw } from "lucide-react";
-
-const VOICE_MAP: Record<string, string> = {
-  Samantha: "en-US", Karen: "en-US", Daniel: "en-GB",
-  Alex: "en-US", Tom: "en-US", Oliver: "en-GB",
-};
+import { resolveVoice } from "@/lib/tts";
 
 interface Word {
   id: string;
@@ -27,6 +23,7 @@ function TypingPageInner() {
 
   const count = Number(params.get("count")) || 10;
   const repeat = Number(params.get("repeat")) || 2;
+  const order = params.get("order") || "random";
   const voiceName = params.get("voice") || "Samantha";
 
   const [phase, setPhase] = useState<"loading" | "ready" | "playing" | "result">("loading");
@@ -52,7 +49,7 @@ function TypingPageInner() {
   useEffect(() => {
     async function load() {
       try {
-        const q = new URLSearchParams({ count: String(count), order: "random" });
+        const q = new URLSearchParams({ count: String(count), order });
         const res = await fetch(`/api/dictation/words?${q}`);
         const data = await res.json();
         if (data.error) { setError(data.error); return; }
@@ -61,17 +58,14 @@ function TypingPageInner() {
       } catch { setError("加载单词失败"); }
     }
     load();
-  }, [count]);
+  }, [count, order]);
 
   // 初始化 TTS
   useEffect(() => {
     function setVoice() {
       const voices = speechSynthesis.getVoices();
       if (voices.length === 0) { setTimeout(setVoice, 200); return; }
-      const lang = VOICE_MAP[voiceName] || "en-US";
-      voiceRef.current = voices.find((v) => v.name.includes(voiceName) && v.lang.startsWith(lang))
-        || voices.find((v) => v.lang.startsWith(lang))
-        || voices[0];
+      voiceRef.current = resolveVoice(voiceName, voices);
     }
     setVoice();
     speechSynthesis.onvoiceschanged = setVoice;
@@ -197,6 +191,8 @@ function TypingPageInner() {
   }
 
   if (phase === "result") {
+    const wrongResults = results.filter((r) => !r.correct);
+
     return (
       <div className="mx-auto max-w-lg p-6">
         <h2 className="mb-2 text-xl font-bold text-gray-900">拼写结果</h2>
@@ -231,12 +227,32 @@ function TypingPageInner() {
           ))}
         </div>
 
-        <button
-          onClick={() => router.push("/dictation/setup")}
-          className="mt-6 w-full rounded-xl border py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          再来一次
-        </button>
+        <div className="mt-6 space-y-2">
+          {wrongResults.length > 0 && (
+            <button
+              onClick={() => {
+                setWords(wrongResults.map((r) => r.word));
+                setCurrentIdx(0);
+                setCurrentRepeat(0);
+                setInput("");
+                setFeedback("idle");
+                setShowAnswer(false);
+                setRepeatListening(false);
+                setResults([]);
+                setPhase("ready");
+              }}
+              className="w-full rounded-xl bg-amber-500 py-3 text-sm font-medium text-white transition hover:bg-amber-600"
+            >
+              专练错词（{wrongResults.length} 个）
+            </button>
+          )}
+          <button
+            onClick={() => router.push("/dictation/setup?mode=typing")}
+            className="w-full rounded-xl border py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            重新设置
+          </button>
+        </div>
       </div>
     );
   }

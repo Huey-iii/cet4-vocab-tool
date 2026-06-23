@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Search, Trash2, CheckCircle, Circle, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Search, Trash2, CheckCircle, Circle, ChevronLeft, ChevronRight, BookOpen, AlertTriangle } from "lucide-react";
 
 interface Word {
   id: string;
@@ -28,6 +28,9 @@ export default function MyWordsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "mastered" | "unmastered">("all");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Word | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = 30;
 
   const fetchWords = useCallback(async (p: number, s: string, status: string) => {
@@ -82,8 +85,12 @@ export default function MyWordsPage() {
   }
 
   function handleSearch(value: string) {
-    setSearch(value);
-    setPage(1);
+    setSearchInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(value);
+      setPage(1);
+    }, 300);
   }
 
   return (
@@ -95,7 +102,7 @@ export default function MyWordsPage() {
         <div className="relative flex-1" style={{ minWidth: 200 }}>
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            value={search}
+            value={searchInput}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="搜索单词或词性..."
             className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm"
@@ -162,7 +169,7 @@ export default function MyWordsPage() {
               </span>
 
               <button
-                onClick={() => deleteWord(w)}
+                onClick={() => setDeleteTarget(w)}
                 className="shrink-0 rounded p-1 text-gray-300 hover:text-red-500"
               >
                 <Trash2 className="h-4 w-4" />
@@ -192,6 +199,37 @@ export default function MyWordsPage() {
           >
             <ChevronRight className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* 删除确认弹窗 */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-80 rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 shrink-0 text-red-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">确认删除</p>
+                <p className="text-xs text-gray-500">
+                  确定要删除单词 &ldquo;{deleteTarget.word}&rdquo; 吗？此操作不可撤销。
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-lg border px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => { deleteWord(deleteTarget); setDeleteTarget(null); }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+              >
+                删除
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

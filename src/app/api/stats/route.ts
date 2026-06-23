@@ -6,14 +6,20 @@ export const runtime = "edge";
 export async function GET() {
   try {
     const db = getDB();
-    const totalR = await db.prepare(`SELECT COUNT(*) as total FROM words`).first<{ total: number }>();
-    const masteredR = await db.prepare(`SELECT COUNT(*) as total FROM words WHERE mastered = 1`).first<{ total: number }>();
-    const unmasteredR = await db.prepare(`SELECT COUNT(*) as total FROM words WHERE mastered = 0`).first<{ total: number }>();
+    const stats = await db
+      .prepare(
+        `SELECT
+          COUNT(*) as total,
+          COALESCE(SUM(CASE WHEN mastered = 1 THEN 1 ELSE 0 END), 0) as mastered,
+          COALESCE(SUM(CASE WHEN mastered = 0 THEN 1 ELSE 0 END), 0) as unmastered
+        FROM words`
+      )
+      .first<{ total: number; mastered: number; unmastered: number }>();
 
     return NextResponse.json({
-      total: totalR?.total ?? 0,
-      mastered: masteredR?.total ?? 0,
-      unmastered: unmasteredR?.total ?? 0,
+      total: stats?.total ?? 0,
+      mastered: stats?.mastered ?? 0,
+      unmastered: stats?.unmastered ?? 0,
       recentSessions: 0,
     });
   } catch (error) {

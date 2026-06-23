@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, FileWarning, Loader2 } from "lucide-react";
+import { compressAndToBase64 } from "@/lib/image";
 
 interface RecognizedWord {
   word: string;
@@ -236,33 +237,3 @@ export default function UploadPage() {
   );
 }
 
-async function compressAndToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (file.type === "application/pdf") {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const MAX = 1200;
-      let w = img.width;
-      let h = img.height;
-      if (w > MAX) {
-        h = (h * MAX) / w;
-        w = MAX;
-      }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", 0.8).split(",")[1]);
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
