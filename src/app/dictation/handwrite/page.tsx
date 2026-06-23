@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Loader2, Play, Pause, SkipForward, Camera,
@@ -95,7 +95,19 @@ function HandwritePageInner() {
     return () => { speechSynthesis.onvoiceschanged = null; };
   }, [voiceName]);
 
-  // 推进到下一个朗读单元（普通函数声明，必须在 speak 前，避免 useCallback 捕获前未声明）
+  // 内部朗读函数（纯函数声明，可被任何函数安全调用）
+  function speakWord(word: string) {
+    const u = new SpeechSynthesisUtterance(word);
+    u.rate = 0.85;
+    if (voiceRef.current) u.voice = voiceRef.current;
+    u.onend = () => {
+      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
+      setTimeout(() => advanceToNext(), 0);
+    };
+    speechSynthesis.speak(u);
+  }
+
+  // 推进到下一个朗读单元
   function advanceToNext() {
     if (phaseRef.current !== "playing") return;
 
@@ -106,9 +118,8 @@ function HandwritePageInner() {
     if (rpt < repeat - 1) {
       // 重复当前词
       setCurrentRepeat(rpt + 1);
-      // 先 cancel 前一个朗读，再播
       speechSynthesis.cancel();
-      setTimeout(() => speak(ws[idx].word), 50);
+      setTimeout(() => speakWord(ws[idx].word), 50);
       return;
     }
 
@@ -126,22 +137,10 @@ function HandwritePageInner() {
 
     if (interval > 0) {
       speechSynthesis.cancel();
-      timerRef.current = setTimeout(() => speak(wordText), interval * 1000);
+      timerRef.current = setTimeout(() => speakWord(wordText), interval * 1000);
     }
     // interval === 0 时不自动播放，等用户点"下一词"
   }
-
-  // 朗读单词（不在 onend 回调链内同步 cancel，避免浏览器引擎锁死）
-  const speak = useCallback((word: string) => {
-    const u = new SpeechSynthesisUtterance(word);
-    u.rate = 0.85;
-    if (voiceRef.current) u.voice = voiceRef.current;
-    u.onend = () => {
-      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
-      setTimeout(() => advanceToNext(), 0);
-    };
-    speechSynthesis.speak(u);
-  }, []);
 
   // 手动跳到下一词（interval=0 时使用）
   const manualNext = () => {
@@ -158,7 +157,7 @@ function HandwritePageInner() {
     setCurrentIdx(idx + 1);
     setCurrentRepeat(0);
     // 立即朗读
-    setTimeout(() => speak(ws[idx + 1].word), 100);
+    setTimeout(() => speakWord(ws[idx + 1].word), 100);
   };
 
   // 开始听写
@@ -167,7 +166,7 @@ function HandwritePageInner() {
     // 用 ref 读最新 words
     setTimeout(() => {
       const ws = wordsRef.current;
-      if (ws.length > 0) speak(ws[0].word);
+      if (ws.length > 0) speakWord(ws[0].word);
     }, 800);
   };
 
@@ -182,7 +181,7 @@ function HandwritePageInner() {
       // 继续：重读当前词
       const ws = wordsRef.current;
       const idx = currentIdxRef.current;
-      speak(ws[idx].word);
+      speakWord(ws[idx].word);
     }
   };
 
