@@ -92,15 +92,14 @@ function HandwritePageInner() {
     return () => { speechSynthesis.onvoiceschanged = null; };
   }, [voiceName]);
 
-  // 朗读单词（onend 回调通过 ref 读取最新状态，永不闭包过期）
+  // 朗读单词（不在 onend 回调链内同步 cancel，避免浏览器引擎锁死）
   const speak = useCallback((word: string) => {
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(word);
     u.rate = 0.85;
     if (voiceRef.current) u.voice = voiceRef.current;
     u.onend = () => {
-      // 朗读结束 → 自动推进
-      advanceToNext();
+      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
+      setTimeout(() => advanceToNext(), 0);
     };
     speechSynthesis.speak(u);
   }, []);
@@ -116,7 +115,9 @@ function HandwritePageInner() {
     if (rpt < repeat - 1) {
       // 重复当前词
       setCurrentRepeat(rpt + 1);
-      speak(ws[idx].word);
+      // 先 cancel 前一个朗读，再播
+      speechSynthesis.cancel();
+      setTimeout(() => speak(ws[idx].word), 50);
       return;
     }
 
@@ -133,6 +134,7 @@ function HandwritePageInner() {
     setCurrentRepeat(0);
 
     if (interval > 0) {
+      speechSynthesis.cancel();
       timerRef.current = setTimeout(() => speak(wordText), interval * 1000);
     }
     // interval === 0 时不自动播放，等用户点"下一词"
