@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Loader2, Play, Pause, SkipForward, Camera,
-  CheckCircle, XCircle, AlertTriangle,
+  CheckCircle, XCircle, AlertTriangle, Sparkles,
 } from "lucide-react";
 import { resolveVoice } from "@/lib/tts";
 import { compressAndToBase64 } from "@/lib/image";
@@ -21,7 +21,6 @@ interface GradeResult {
   user_wrote: string;
   suggestion: string | null;
 }
-
 
 function HandwritePageInner() {
   const router = useRouter();
@@ -50,12 +49,11 @@ function HandwritePageInner() {
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 用 refs 保持最新值，根治闭包过期
   const wordsRef = useRef(words);
   const currentIdxRef = useRef(currentIdx);
   const currentRepeatRef = useRef(currentRepeat);
   const phaseRef = useRef(phase);
-  // 同步 ref（useEffect 内写入，不在 render 期间操作 ref）
+
   useEffect(() => {
     wordsRef.current = words;
     currentIdxRef.current = currentIdx;
@@ -90,19 +88,16 @@ function HandwritePageInner() {
     return () => { speechSynthesis.onvoiceschanged = null; };
   }, [voiceName]);
 
-  // 内部朗读函数（纯函数声明，可被任何函数安全调用）
   function speakWord(word: string) {
     const u = new SpeechSynthesisUtterance(word);
     u.rate = 0.85;
     if (voiceRef.current) u.voice = voiceRef.current;
     u.onend = () => {
-      // 朗读结束 → 延迟到下一个 tick 推进，脱离 onend 回调链
       setTimeout(() => advanceToNext(), 0);
     };
     speechSynthesis.speak(u);
   }
 
-  // 推进到下一个朗读单元
   function advanceToNext() {
     if (phaseRef.current !== "playing") return;
 
@@ -111,14 +106,12 @@ function HandwritePageInner() {
     const rpt = currentRepeatRef.current;
 
     if (rpt < repeat - 1) {
-      // 重复当前词
       setCurrentRepeat(rpt + 1);
       speechSynthesis.cancel();
       setTimeout(() => speakWord(ws[idx].word), 50);
       return;
     }
 
-    // 下一个词
     if (idx + 1 >= ws.length) {
       setPhase("finished");
       return;
@@ -134,10 +127,8 @@ function HandwritePageInner() {
       speechSynthesis.cancel();
       timerRef.current = setTimeout(() => speakWord(wordText), interval * 1000);
     }
-    // interval === 0 时不自动播放，等用户点"下一词"
   }
 
-  // 手动跳到下一词（interval=0 时使用）
   const manualNext = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     speechSynthesis.cancel();
@@ -151,21 +142,17 @@ function HandwritePageInner() {
     }
     setCurrentIdx(idx + 1);
     setCurrentRepeat(0);
-    // 立即朗读
     setTimeout(() => speakWord(ws[idx + 1].word), 100);
   };
 
-  // 开始听写
   const startPlaying = () => {
     setPhase("playing");
-    // 用 ref 读最新 words
     setTimeout(() => {
       const ws = wordsRef.current;
       if (ws.length > 0) speakWord(ws[0].word);
     }, 800);
   };
 
-  // 暂停 / 继续
   const togglePause = () => {
     if (phase === "playing") {
       speechSynthesis.cancel();
@@ -173,14 +160,12 @@ function HandwritePageInner() {
       setPhase("paused");
     } else if (phase === "paused") {
       setPhase("playing");
-      // 继续：重读当前词
       const ws = wordsRef.current;
       const idx = currentIdxRef.current;
       speakWord(ws[idx].word);
     }
   };
 
-  // 清理
   useEffect(() => {
     return () => {
       speechSynthesis.cancel();
@@ -188,7 +173,6 @@ function HandwritePageInner() {
     };
   }, []);
 
-  // 手写拍照上传
   async function handleFileDrop(file: File) {
     setHandwritingFile(file);
     const reader = new FileReader();
@@ -227,56 +211,64 @@ function HandwritePageInner() {
     }
   }
 
+  // ── 错误 ──
   if (error) {
     return (
-      <div className="mx-auto max-w-lg p-6 pt-20 text-center">
-        <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-        <p className="text-gray-700">{error}</p>
-        <button onClick={() => router.back()} className="mt-4 text-sm text-blue-600 underline">
+      <div className="mx-auto max-w-lg px-5 py-20 text-center">
+        <div className="mb-4 flex items-center justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
+            <AlertTriangle className="h-7 w-7 text-amber-500" />
+          </div>
+        </div>
+        <p className="mb-5 text-sm text-slate-600">{error}</p>
+        <button onClick={() => router.back()} className="rounded-xl bg-indigo-500 px-6 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:bg-indigo-600 active:scale-95">
           返回
         </button>
       </div>
     );
   }
 
-  // 结果阶段
+  // ── 结果 ──
   if (phase === "result") {
     const wrongResults = gradeResults.filter((r) => !r.correct);
     const wrongWords = wrongResults
       .map((r) => words.find((w) => w.id === r.word_id))
       .filter((w): w is Word => w != null);
+    const pct = Math.round(score * 100);
 
     return (
-      <div className="mx-auto max-w-lg p-6">
-        <h2 className="mb-2 text-xl font-bold text-gray-900">听写结果</h2>
-        <div className="mb-4 flex items-center gap-2">
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-            {Math.round(score * 100)} 分
-          </span>
-          <span className="text-sm text-gray-500">
+      <div className="mx-auto max-w-lg px-5 py-8 animate-fade-in">
+        {/* 分数 */}
+        <div className="glass-card mb-6 p-6 text-center">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">成绩</p>
+          <p className={`mb-2 text-5xl font-extrabold tracking-tight ${
+            pct >= 80 ? "text-emerald-500" : pct >= 60 ? "text-amber-500" : "text-red-400"
+          }`}>{pct}</p>
+          <p className="text-sm font-medium text-slate-500">
             {correct}/{words.length} 正确
-          </span>
+          </p>
         </div>
 
         {imagePreview && (
-          <img src={imagePreview} alt="手写" className="mb-4 max-h-48 w-full rounded-lg border object-contain" />
+          <img src={imagePreview} alt="手写" className="mb-4 max-h-40 w-full rounded-2xl border object-contain bg-white" />
         )}
 
-        <div className="space-y-2">
+        {/* 结果列表 */}
+        <div className="mb-6 space-y-1.5">
           {gradeResults.map((r, i) => {
             const word = words.find((w) => w.id === r.word_id);
             return (
-              <div key={i} className="flex items-start gap-3 rounded-lg border p-3">
+              <div key={i} className="glass-card flex items-start gap-3 p-3">
                 {r.correct ? (
-                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                 ) : (
                   <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
                 )}
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className="font-medium text-gray-900">{word?.word ?? r.word_id}</p>
+                  <p className="font-semibold text-slate-800">{word?.word ?? r.word_id}</p>
                   {r.suggestion && <p className="mt-0.5 text-xs text-red-500">{r.suggestion}</p>}
                   {r.user_wrote && r.user_wrote !== "unreadable" && (
-                    <p className="mt-0.5 text-xs text-gray-400">你写的是: {r.user_wrote}</p>
+                    <p className="mt-0.5 text-xs text-slate-400">你写的是: {r.user_wrote}</p>
                   )}
                 </div>
               </div>
@@ -284,7 +276,8 @@ function HandwritePageInner() {
           })}
         </div>
 
-        <div className="mt-6 space-y-2">
+        {/* 操作按钮 */}
+        <div className="space-y-2">
           {wrongWords.length > 0 && (
             <button
               onClick={() => {
@@ -298,14 +291,14 @@ function HandwritePageInner() {
                 setHandwritingFile(null);
                 setPhase("ready");
               }}
-              className="w-full rounded-xl bg-amber-500 py-3 text-sm font-medium text-white transition hover:bg-amber-600"
+              className="w-full rounded-2xl bg-amber-500 py-3.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-amber-600 hover:shadow-lg active:scale-95"
             >
               专练错词（{wrongWords.length} 个）
             </button>
           )}
           <button
             onClick={() => router.push("/dictation/setup?mode=handwrite")}
-            className="w-full rounded-xl border py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+            className="w-full rounded-2xl border border-slate-200 py-3 text-sm font-medium text-slate-500 transition-all hover:bg-slate-50"
           >
             重新设置
           </button>
@@ -314,29 +307,56 @@ function HandwritePageInner() {
     );
   }
 
-  // 已完成播放 → 等待拍照上传
+  // ── 批改中 ──
+  if (phase === "grading") {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col items-center px-5 py-20 animate-fade-in">
+        <div className="glass-card p-8 text-center">
+          <div className="mb-4 flex items-center justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+          </div>
+          <p className="text-sm font-medium text-slate-700">AI 正在批改...</p>
+          <p className="mt-1 text-xs text-slate-400">请稍候，正在识别你的手写内容</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 已完成播放 ──
   if (phase === "finished") {
     return (
-      <div className="mx-auto max-w-lg p-6">
-        <h2 className="mb-2 text-xl font-bold text-gray-900">听写完成</h2>
-        <p className="mb-6 text-sm text-gray-500">
-          共 {words.length} 个单词。请用手机拍下你的手写纸，上传批改。
-        </p>
+      <div className="mx-auto max-w-lg px-5 py-8 animate-fade-in">
+        <div className="glass-card mb-6 p-6 text-center">
+          <div className="mb-3 flex items-center justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
+              <CheckCircle className="h-7 w-7 text-emerald-500" />
+            </div>
+          </div>
+          <h2 className="mb-1 text-lg font-bold text-slate-800">听写完成</h2>
+          <p className="text-sm text-slate-400">共 {words.length} 个单词。拍下你的手写纸，上传批改。</p>
+        </div>
 
         {imagePreview ? (
           <div className="mb-4">
-            <img src={imagePreview} alt="手写预览" className="max-h-48 w-full rounded-lg border object-contain" />
+            <img src={imagePreview} alt="手写预览" className="max-h-48 w-full rounded-2xl border bg-white object-contain" />
             <button
               onClick={() => { setImagePreview(null); setHandwritingFile(null); }}
-              className="mt-2 text-xs text-blue-500 underline"
+              className="mt-2 text-xs font-medium text-indigo-500 hover:text-indigo-600"
             >
               重新选择
             </button>
           </div>
         ) : (
-          <label className="mb-4 flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 p-12 hover:border-gray-400">
-            <Camera className="h-8 w-8 text-gray-400" />
-            <span className="text-sm text-gray-500">点击拍照或选择图片</span>
+          <label className="mb-4 flex cursor-pointer flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 py-12 text-center transition-all hover:border-indigo-300 hover:bg-white/80">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
+              <Camera className="h-7 w-7 text-slate-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-600">点击拍照或选择图片</p>
+              <p className="mt-0.5 text-xs text-slate-400">支持 JPG、PNG 格式</p>
+            </div>
             <input
               type="file"
               accept="image/*"
@@ -349,7 +369,7 @@ function HandwritePageInner() {
         <button
           onClick={gradeHandwriting}
           disabled={!handwritingFile}
-          className="w-full rounded-xl bg-blue-600 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className="btn-gradient w-full rounded-2xl py-3.5 text-sm font-semibold disabled:opacity-50 disabled:shadow-none"
         >
           提交批改
         </button>
@@ -357,58 +377,62 @@ function HandwritePageInner() {
     );
   }
 
-  // 播放阶段
+  // ── 播放状态（ready / playing / paused） ──
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center p-6 pt-16">
-      <p className="mb-2 text-sm text-gray-400">
-        {currentIdx + 1} / {words.length}
+    <div className="mx-auto flex max-w-lg flex-col items-center px-5 py-12 animate-fade-in">
+      {/* 进度 */}
+      <p className="mb-1 text-sm font-medium text-slate-400">
+        {currentIdx + 1} <span className="text-slate-300">/</span> {words.length}
       </p>
 
       {/* 进度条 */}
-      <div className="mb-8 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
+      <div className="mb-10 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
         <div
-          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
           style={{ width: `${((currentIdx + currentRepeat / repeat) / words.length) * 100}%` }}
         />
       </div>
 
       {/* 倒计时提示 */}
       {interval > 0 && phase === "playing" && currentRepeat === 0 && currentIdx < words.length - 1 && (
-        <p className="mb-2 text-xs text-gray-400">下一词 {interval} 秒后</p>
+        <p className="mb-4 rounded-full bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-500">
+          下一词 {interval} 秒后
+        </p>
       )}
 
       {/* 控制按钮 */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         {phase === "ready" ? (
           <button
             onClick={startPlaying}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
+            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-200 hover:scale-105 active:scale-95"
           >
-            <Play className="ml-1 h-6 w-6" />
+            {/* 脉动光环 */}
+            <div className="absolute inset-0 animate-pulseGlow rounded-full" />
+            <Play className="relative z-10 ml-1 h-7 w-7" />
           </button>
         ) : phase === "paused" ? (
           <button
             onClick={togglePause}
-            className="flex h-12 w-12 items-center justify-center rounded-full border text-gray-600 hover:bg-gray-100"
+            className="glass-card flex h-12 w-12 items-center justify-center rounded-full transition-all hover:shadow-lg active:scale-95"
           >
-            <Play className="ml-0.5 h-5 w-5" />
+            <Play className="ml-0.5 h-5 w-5 text-slate-600" />
           </button>
         ) : (
           <>
-            {/* interval=0 时显示手动跳词按钮 */}
             {interval === 0 && (
               <button
                 onClick={manualNext}
-                className="flex h-12 w-12 items-center justify-center rounded-full border text-gray-600 hover:bg-gray-100"
+                className="glass-card flex h-12 w-12 items-center justify-center rounded-full transition-all hover:shadow-lg active:scale-95"
               >
-                <SkipForward className="h-5 w-5" />
+                <SkipForward className="h-5 w-5 text-slate-500" />
               </button>
             )}
             <button
               onClick={togglePause}
-              className="flex h-12 w-12 items-center justify-center rounded-full border text-gray-600 hover:bg-gray-100"
+              className="glass-card flex h-12 w-12 items-center justify-center rounded-full transition-all hover:shadow-lg active:scale-95"
             >
-              <Pause className="h-5 w-5" />
+              <Pause className="h-5 w-5 text-slate-600" />
             </button>
           </>
         )}
@@ -419,7 +443,7 @@ function HandwritePageInner() {
 
 export default function HandwritePage() {
   return (
-    <Suspense fallback={<div className="flex justify-center pt-20"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+    <Suspense fallback={<div className="flex justify-center pt-20"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>}>
       <HandwritePageInner />
     </Suspense>
   );

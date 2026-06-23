@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Search, Trash2, CheckCircle, Circle, ChevronLeft, ChevronRight, BookOpen, AlertTriangle } from "lucide-react";
+import { Search, Trash2, CheckCircle, Circle, ChevronLeft, ChevronRight, BookOpen, Sparkles } from "lucide-react";
 
 interface Word {
   id: string;
@@ -19,6 +19,12 @@ interface WordListResponse {
   pageSize: number;
   totalPages: number;
 }
+
+const FILTERS = [
+  { key: "all", label: "全部" },
+  { key: "unmastered", label: "未掌握" },
+  { key: "mastered", label: "已掌握" },
+] as const;
 
 export default function MyWordsPage() {
   const [words, setWords] = useState<Word[]>([]);
@@ -94,83 +100,105 @@ export default function MyWordsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h2 className="mb-6 text-xl font-bold text-gray-900">我的词库</h2>
+    <div className="mx-auto max-w-2xl px-5 py-8 animate-fade-in">
+      {/* ── 标题 ── */}
+      <div className="mb-6">
+        <h2 className="text-xl font-extrabold text-slate-900">我的词库</h2>
+        <p className="mt-0.5 text-xs text-slate-400">共 {total} 个单词</p>
+      </div>
 
-      {/* 搜索 & 过滤 */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1" style={{ minWidth: 200 }}>
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      {/* ── 搜索 & 过滤 ── */}
+      <div className="mb-4 space-y-3">
+        {/* 搜索 */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={searchInput}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="搜索单词或词性..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm"
+            className="input-glow glass-card w-full py-2.5 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-300"
           />
         </div>
-        <div className="flex rounded-lg border border-gray-300 text-sm">
-          {(["all", "unmastered", "mastered"] as const).map((f) => (
+
+        {/* 过滤 */}
+        <div className="flex rounded-2xl bg-slate-100/80 p-1 text-sm">
+          {FILTERS.map(({ key, label }) => (
             <button
-              key={f}
-              onClick={() => { setStatusFilter(f); setPage(1); }}
-              className={`px-3 py-2 first:rounded-l-lg last:rounded-r-lg transition ${
-                statusFilter === f ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"
+              key={key}
+              onClick={() => { setStatusFilter(key); setPage(1); }}
+              className={`flex-1 rounded-xl py-2 text-center text-xs font-medium transition-all duration-200 ${
+                statusFilter === key
+                  ? "bg-white text-indigo-600 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {{ all: "全部", unmastered: "未掌握", mastered: "已掌握" }[f]}
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 统计 */}
-      <p className="mb-3 text-xs text-gray-400">共 {total} 个单词</p>
-
-      {/* 列表 */}
+      {/* ── 列表 ── */}
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-14 rounded-2xl" />
           ))}
         </div>
       ) : words.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-gray-400">
-          <BookOpen className="mb-3 h-10 w-10" />
-          <p>还没有单词，去上传页添加吧</p>
+        <div className="glass-card flex flex-col items-center px-6 py-14 text-center animate-slide-up">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
+            <BookOpen className="h-7 w-7 text-slate-300" />
+          </div>
+          <p className="mb-1 text-sm font-medium text-slate-500">词库为空</p>
+          <p className="text-xs text-slate-400">去上传页添加一些单词吧</p>
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {words.map((w) => (
             <div
               key={w.id}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition hover:bg-gray-50 ${
-                w.mastered ? "opacity-60" : ""
+              className={`glass-card flex items-center gap-3 px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
+                w.mastered ? "opacity-50" : ""
               }`}
             >
-              <button onClick={() => toggleMastered(w)} className="shrink-0">
+              {/* 已掌握切换 */}
+              <button
+                onClick={() => toggleMastered(w)}
+                className="shrink-0 transition-transform active:scale-90"
+              >
                 {w.mastered ? (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <CheckCircle className="h-5 w-5 text-emerald-500" />
                 ) : (
-                  <Circle className="h-5 w-5 text-gray-300" />
+                  <Circle className="h-5 w-5 text-slate-300 hover:text-emerald-400 transition-colors" />
                 )}
               </button>
 
+              {/* 单词信息 */}
               <div className="min-w-0 flex-1">
-                <span className={`text-sm font-medium ${w.mastered ? "line-through" : ""}`}>
+                <span
+                  className={`text-sm font-semibold text-slate-800 ${
+                    w.mastered ? "line-through" : ""
+                  }`}
+                >
                   {w.word}
                 </span>
                 {w.chinese_meaning && (
-                  <span className="ml-2 text-xs text-gray-400">{w.chinese_meaning}</span>
+                  <span className="ml-2 text-xs text-slate-400">{w.chinese_meaning}</span>
                 )}
               </div>
 
-              <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                {w.part_of_speech || "-"}
-              </span>
+              {/* 词性标签 */}
+              {w.part_of_speech && (
+                <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                  {w.part_of_speech}
+                </span>
+              )}
 
+              {/* 删除 */}
               <button
                 onClick={() => setDeleteTarget(w)}
-                className="shrink-0 rounded p-1 text-gray-300 hover:text-red-500"
+                className="shrink-0 rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-400"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -179,52 +207,52 @@ export default function MyWordsPage() {
         </div>
       )}
 
-      {/* 分页 */}
+      {/* ── 分页 ── */}
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
+        <div className="mt-6 flex items-center justify-center gap-3">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded-lg border p-2 text-sm disabled:opacity-30"
+            className="glass-card flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-all hover:text-indigo-600 disabled:opacity-30"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm font-medium text-slate-500">
             {page} / {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded-lg border p-2 text-sm disabled:opacity-30"
+            className="glass-card flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-all hover:text-indigo-600 disabled:opacity-30"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* 删除确认弹窗 */}
+      {/* ── 删除确认弹窗 ── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-80 rounded-xl bg-white p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-6 w-6 shrink-0 text-red-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">确认删除</p>
-                <p className="text-xs text-gray-500">
-                  确定要删除单词 &ldquo;{deleteTarget.word}&rdquo; 吗？此操作不可撤销。
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-80 p-6 shadow-xl animate-bounce-in">
+            <div className="mb-1 flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <Trash2 className="h-6 w-6 text-red-400" />
               </div>
             </div>
-            <div className="mt-5 flex justify-end gap-2">
+            <p className="mb-1 text-center text-sm font-semibold text-slate-800">确认删除</p>
+            <p className="mb-5 text-center text-xs text-slate-500">
+              确定要删除 <span className="font-semibold text-slate-700">&ldquo;{deleteTarget.word}&rdquo;</span> 吗？<br />此操作不可撤销。
+            </p>
+            <div className="flex gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-lg border px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50"
               >
                 取消
               </button>
               <button
                 onClick={() => { deleteWord(deleteTarget); setDeleteTarget(null); }}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-95"
               >
                 删除
               </button>
