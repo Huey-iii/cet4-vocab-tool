@@ -54,14 +54,28 @@ export async function POST(request: Request) {
     for (const w of words) {
       const word = w.word?.trim();
       if (!word) continue;
-      // 生成短 ID：取单词前6字符 + 时间戳末4位 + 随机2字符
-      const id = `${word.slice(0, 6)}_${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 4)}`;
-      await db
-        .prepare(
-          `INSERT OR IGNORE INTO words (id, word, part_of_speech, chinese_meaning) VALUES (?, ?, ?, ?)`
-        )
-        .bind(id, word, w.part_of_speech || "", w.chinese_meaning || "")
-        .run();
+
+      // 按 word 去重：已存在则更新释义/词性，不存在则插入
+      const existing = await db
+        .prepare(`SELECT id FROM words WHERE word = ?`)
+        .bind(word)
+        .first<{ id: string }>();
+
+      if (existing) {
+        // 仅在提供了新值时更新
+        if (w.part_of_speech || w.chinese_meaning) {
+          await db
+            .prepare(`UPDATE words SET part_of_speech = ?, chinese_meaning = ? WHERE id = ?`)
+            .bind(w.part_of_speech || "", w.chinese_meaning || "", existing.id)
+            .run();
+        }
+      } else {
+        const id = `${word.slice(0, 6)}_${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 4)}`;
+        await db
+          .prepare(`INSERT INTO words (id, word, part_of_speech, chinese_meaning) VALUES (?, ?, ?, ?)`)
+          .bind(id, word, w.part_of_speech || "", w.chinese_meaning || "")
+          .run();
+      }
     }
 
     return NextResponse.json({ success: true, count: words.filter((w) => w.word?.trim()).length });
